@@ -1,0 +1,14 @@
+node_modules
+.next
+dist
+build
+.env
+.env.local
+*.log
+wa_auth
+apps/api/wa_auth
+.DS_Store
+coverage
+.turbo
+prisma/*.db
+prisma/*.db-journal

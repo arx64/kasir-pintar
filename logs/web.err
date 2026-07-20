@@ -1,0 +1,13 @@
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⨯ TypeError: allowedRoles?.join is not a function
+    at useAuth (d:\FILE SKRIPSI ARIFIN\kasir-pintar\apps\web\src\hooks\use-auth.ts:13:35)
+    at Shell (d:\FILE SKRIPSI ARIFIN\kasir-pintar\apps\web\src\components\shell.tsx:17:34)
+  11 |   const [ready, setReady] = useState(false);
+  12 |
+> 13 |   const allowedKey = allowedRoles?.join(',');
+     |                                   ^
+  14 |
+  15 |   useEffect(() => {
+  16 |     const t = window.localStorage.getItem('token'); {
+  digest: '1101900431'
+}

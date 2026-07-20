@@ -1,0 +1,26 @@
+{
+  "name": "kasir-pintar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Smart POS - Point of Sale dengan integrasi WhatsApp Baileys",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev -w @kasir-pintar/api\" \"npm run dev -w @kasir-pintar/web\"",
+    "dev:api": "npm run dev -w @kasir-pintar/api",
+    "dev:web": "npm run dev -w @kasir-pintar/web",
+    "build": "npm run build -w @kasir-pintar/api && npm run build -w @kasir-pintar/web",
+    "db:generate": "npm run db:generate -w @kasir-pintar/api",
+    "db:migrate": "npm run db:migrate -w @kasir-pintar/api",
+    "db:seed": "npm run db:seed -w @kasir-pintar/api",
+    "db:push": "npm run db:push -w @kasir-pintar/api",
+    "start": "npm run start -w @kasir-pintar/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

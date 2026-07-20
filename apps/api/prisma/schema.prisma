@@ -1,0 +1,212 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+enum Role {
+  OWNER
+  KASIR
+}
+
+enum PaymentMethod {
+  CASH
+  QRIS
+}
+
+enum SaleStatus {
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum StockLogType {
+  SALE
+  REFUND
+  ADJUSTMENT
+  RESTOCK
+  CANCEL
+}
+
+enum ExpenseCategory {
+  BAHAN
+  LISTRIK
+  AIR
+  GAJI
+  TRANSPORT
+  OPERASIONAL
+  LAINNYA
+}
+
+enum WhatsAppLogType {
+  NOTIFICATION
+  COMMAND_REPLY
+  DAILY_REPORT
+  MONTHLY_REPORT
+  STOCK_ALERT
+  CUSTOMER_REQUEST
+  ERROR
+}
+
+enum CustomerRequestStatus {
+  NEW
+  IN_PROGRESS
+  DONE
+  REJECTED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(KASIR)
+  phone        String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sales    Sale[]
+  expenses Expense[]
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  name         String
+  barcode      String?  @unique
+  costPrice    Decimal 
+  sellPrice    Decimal 
+  stock        Int      @default(0)
+  minStock     Int      @default(5)
+  categoryId   String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  category   Category?   @relation(fields: [categoryId], references: [id])
+  saleItems  SaleItem[]
+  stockLogs  StockLog[]
+
+  @@index([name])
+  @@index([categoryId])
+}
+
+model Sale {
+  id            String        @id @default(cuid())
+  invoiceNo     String        @unique
+  cashierId     String
+  subtotal      Decimal      
+  discount      Decimal       @default(0)
+  total         Decimal      
+  paidAmount    Decimal      
+  changeAmount  Decimal       @default(0)
+  paymentMethod PaymentMethod
+  status        SaleStatus    @default(COMPLETED)
+  note          String?
+  cancelledAt   DateTime?
+  refundedAt    DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  cashier User       @relation(fields: [cashierId], references: [id])
+  items   SaleItem[]
+
+  @@index([createdAt])
+  @@index([cashierId])
+  @@index([status])
+}
+
+model SaleItem {
+  id         String  @id @default(cuid())
+  saleId     String
+  productId  String
+  productName String
+  quantity   Int
+  unitPrice  Decimal
+  costPrice  Decimal
+  subtotal   Decimal
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([saleId])
+  @@index([productId])
+}
+
+model Expense {
+  id          String          @id @default(cuid())
+  date        DateTime
+  category    ExpenseCategory
+  amount      Decimal        
+  description String?
+  createdById String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  createdBy User @relation(fields: [createdById], references: [id])
+
+  @@index([date])
+  @@index([category])
+}
+
+model StockLog {
+  id        String       @id @default(cuid())
+  productId String
+  type      StockLogType
+  quantity  Int
+  before    Int
+  after     Int
+  note      String?
+  refId     String?
+  createdAt DateTime     @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@index([createdAt])
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WhatsAppLog {
+  id        String          @id @default(cuid())
+  type      WhatsAppLogType
+  to        String?
+  message   String
+  status    String
+  meta      Json?
+  createdAt DateTime        @default(now())
+
+  @@index([createdAt])
+  @@index([type])
+}
+
+model CustomerRequest {
+  id        String                @id @default(cuid())
+  name      String
+  phone     String
+  message   String
+  status    CustomerRequestStatus @default(NEW)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  @@index([createdAt])
+  @@index([status])
+}
