@@ -1,4 +1,4 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import { SaleStatus } from '@prisma/client';
 import { asyncHandler } from '../../utils/async-handler.js';
 import { queryString, paramString } from '../../utils/query.js';
@@ -10,6 +10,7 @@ import {
   cancelSale,
   createSale,
   createSaleSchema,
+  deleteSale,
   getSale,
   listSales,
   refundSale,
@@ -98,6 +99,15 @@ salesRouter.post(
   authorize('OWNER'),
   asyncHandler(async (req, res) => {
     const data = await refundSale(paramString(req, 'id'));
+    res.json({ success: true, data });
+  })
+);
+
+salesRouter.delete(
+  '/:id',
+  authorize('OWNER'),
+  asyncHandler(async (req, res) => {
+    const data = await deleteSale(paramString(req, 'id'));
     res.json({ success: true, data });
   })
 );

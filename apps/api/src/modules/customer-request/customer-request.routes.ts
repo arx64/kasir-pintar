@@ -5,6 +5,8 @@ import { queryString, paramString } from '../../utils/query.js';
 import { authenticate, authorize } from '../../middlewares/auth.js';
 import {
   createCustomerRequest,
+  deleteCustomerRequest,
+  getCustomerRequest,
   listCustomerRequests,
   updateStatus,
 } from './customer-request.service.js';
@@ -32,8 +34,16 @@ customerRequestRouter.use(authenticate, authorize('OWNER'));
 customerRequestRouter.get(
   '/',
   asyncHandler(async (req, res) => {
-    const status = queryString(req, "status");
+    const status = queryString(req, 'status');
     const data = await listCustomerRequests(status);
+    res.json({ success: true, data });
+  })
+);
+
+customerRequestRouter.get(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const data = await getCustomerRequest(paramString(req, 'id'));
     res.json({ success: true, data });
   })
 );
@@ -43,6 +53,14 @@ customerRequestRouter.patch(
   asyncHandler(async (req, res) => {
     const status = z.string().min(1).parse(req.body.status);
     const data = await updateStatus(paramString(req, 'id'), status);
+    res.json({ success: true, data });
+  })
+);
+
+customerRequestRouter.delete(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const data = await deleteCustomerRequest(paramString(req, 'id'));
     res.json({ success: true, data });
   })
 );

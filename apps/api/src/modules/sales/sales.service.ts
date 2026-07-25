@@ -1,10 +1,11 @@
-import { PaymentMethod, Prisma, SaleStatus } from '@prisma/client';
+﻿import { PaymentMethod, Prisma, SaleStatus } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import { ApiError } from '../../utils/api-error.js';
 import { generateInvoiceNo } from '../../utils/invoice.js';
 import { toNumber } from '../../utils/money.js';
 import { env } from '../../config/env.js';
+import { startOfToday } from '../../utils/date.js';
 import {
   notifyCancellation,
   notifyLargeSale,
@@ -61,8 +62,7 @@ export async function createSale(cashierId: string, input: z.infer<typeof create
   }
 
   const sale = await prisma.$transaction(async (tx) => {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    const todayStart = startOfToday();
     const countToday = await tx.sale.count({
       where: { createdAt: { gte: todayStart } },
     });
@@ -119,7 +119,6 @@ export async function createSale(cashierId: string, input: z.infer<typeof create
     return created;
   });
 
-  // async notifications (non-blocking)
   void notifyStockAlerts(prepared.map((p) => p.product.id));
   if (total >= env.WA_LARGE_SALE_THRESHOLD) {
     void notifyLargeSale(sale);
@@ -176,6 +175,33 @@ export async function getSale(id: string) {
   });
   if (!sale) throw new ApiError(404, 'Transaksi tidak ditemukan');
   return sale;
+}
+
+export async function deleteSale(id: string) {
+  const sale = await getSale(id);
+
+  await prisma.$transaction(async (tx) => {
+    if (sale.status === 'COMPLETED') {
+      for (const item of sale.items) {
+        const product = await tx.product.findUnique({ where: { id: item.productId } });
+        if (!product) continue;
+        await tx.product.update({
+          where: { id: product.id },
+          data: { stock: product.stock + item.quantity },
+        });
+      }
+    }
+
+    await tx.stockLog.deleteMany({
+      where: { refId: sale.id },
+    });
+
+    await tx.sale.delete({
+      where: { id: sale.id },
+    });
+  });
+
+  return { id: sale.id };
 }
 
 export async function cancelSale(id: string, actorId: string, isOwner: boolean) {

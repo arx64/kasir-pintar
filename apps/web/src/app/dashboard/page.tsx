@@ -1,6 +1,7 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
+import { useApi } from '@/hooks/use-api';
 import { Shell, StatCard } from '@/components/shell';
 import { api, type DashboardResponse } from '@/lib/api';
 import { currency } from '@/lib/format';
@@ -16,10 +17,15 @@ export default function DashboardPage() {
     if (t) setToken(t);
   }, []);
 
+  const { data: dashData, error: dashError } = useApi(
+    token ? 'dashboard' : null,
+    () => api.dashboard(token),
+    { ttl: 30_000 }
+  );
   useEffect(() => {
-    if (!token) return;
-    api.dashboard(token).then(setData).catch(console.error);
-  }, [token]);
+    if (dashData) setData(dashData);
+    if (dashError) console.error(dashError);
+  }, [dashData, dashError]);
 
   if (!data) return <Shell allowedRoles={["OWNER"]}><div className="flex items-center justify-center min-h-[60vh] text-slate-400">Memuat dashboard...</div></Shell>;
 

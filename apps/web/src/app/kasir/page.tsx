@@ -1,6 +1,7 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useApi, invalidateApi } from '@/hooks/use-api';
 import { Shell } from '@/components/shell';
 import { api, type Product, type Sale } from '@/lib/api';
 import { currency, toNumber } from '@/lib/format';
@@ -40,12 +41,14 @@ export default function KasirPage() {
     setToken(t);
   }, []);
 
+  const { data: productsData } = useApi(
+    token ? 'products' : null,
+    () => api.products(token),
+    { ttl: 60_000 }
+  );
   useEffect(() => {
-    if (!token) return;
-    api.products(token)
-      .then((res) => setProducts(res.items))
-      .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat produk'));
-  }, [token]);
+    if (productsData) setProducts(productsData.items);
+  }, [productsData]);
 
   const filteredProducts = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -163,6 +166,7 @@ export default function KasirPage() {
       setDiscount('0');
       setNote('');
       setQris(null);
+      invalidateApi('products');
       const refreshed = await api.products(token);
       setProducts(refreshed.items);
     } catch (err) {
@@ -191,7 +195,7 @@ export default function KasirPage() {
       `Kembali  : ${currency(success.changeAmount)}`,
       `Metode   : ${success.paymentMethod}`,
       '',
-      'Terima kasih 🙏',
+      'Terima kasih ðŸ™',
     ].join('\n');
 
     const win = window.open('', '_blank', 'width=360,height=640');
@@ -220,7 +224,7 @@ export default function KasirPage() {
           <div className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800 flex items-center justify-between gap-3">
             <div>
               <p className="font-semibold">Transaksi berhasil</p>
-              <p>{success.invoiceNo} • {currency(success.total)}</p>
+              <p>{success.invoiceNo} â€¢ {currency(success.total)}</p>
             </div>
             <button className="btn-secondary" onClick={printReceipt}>Cetak Struk</button>
           </div>

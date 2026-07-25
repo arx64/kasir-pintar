@@ -1,6 +1,7 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useApi, invalidateApi } from '@/hooks/use-api';
 import { Shell } from '@/components/shell';
 import { readRole } from '@/hooks/use-auth';
 import { api, EXPENSE_CATEGORIES, type ExpenseCategory, type Expense } from '@/lib/api';
@@ -16,10 +17,28 @@ export default function PengeluaranPage() {
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
 
+  const expensesKey = token
+    ? `expenses?from=${from || ''}&to=${to || ''}&cat=${filterCategory || ''}`
+    : null;
+  const { data: expData, error: expError } = useApi(
+    expensesKey,
+    () => api.expenses(token, {
+      from: from || undefined,
+      to: to || undefined,
+      category: filterCategory || undefined,
+    }),
+    { ttl: 20_000 }
+  );
+  useEffect(() => {
+    if (expData) setExpenses(expData.items);
+    if (expError) setError(expError);
+  }, [expData, expError]);
+
   const load = useCallback(async () => {
     if (!token) return;
     setError('');
     try {
+      invalidateApi(expensesKey || '');
       const res = await api.expenses(token, {
         from: from || undefined,
         to: to || undefined,
@@ -29,7 +48,7 @@ export default function PengeluaranPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal memuat data');
     }
-  }, [token, from, to, filterCategory]);
+  }, [token, from, to, filterCategory, expensesKey]);
 
   useEffect(() => {
     const t = window.localStorage.getItem('token') || '';

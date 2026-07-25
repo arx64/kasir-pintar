@@ -76,6 +76,23 @@ export async function getExpense(id: string) {
   return expense;
 }
 
+export async function updateExpense(
+  id: string,
+  input: Partial<z.infer<typeof expenseSchema>>
+) {
+  await getExpense(id);
+  return prisma.expense.update({
+    where: { id },
+    data: {
+      ...(input.date !== undefined ? { date: input.date } : {}),
+      ...(input.category !== undefined ? { category: input.category } : {}),
+      ...(input.amount !== undefined ? { amount: input.amount } : {}),
+      ...(input.description !== undefined ? { description: input.description } : {}),
+    },
+    include: { createdBy: { select: { id: true, name: true } } },
+  });
+}
+
 export async function deleteExpense(id: string) {
   await getExpense(id);
   await prisma.expense.delete({ where: { id } });

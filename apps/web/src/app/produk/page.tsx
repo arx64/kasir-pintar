@@ -1,6 +1,7 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useApi, invalidateApi } from '@/hooks/use-api';
 import { Shell } from '@/components/shell';
 import { readRole } from '@/hooks/use-auth';
 import {
@@ -31,10 +32,40 @@ export default function ProdukPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Kategori stabil -> pakai cache antar halaman (tidak refetch tiap pindah).
+  const { data: catData, error: catError } = useApi(
+    token ? 'categories' : null,
+    () => api.categories(token),
+    { ttl: 120_000 }
+  );
+  useEffect(() => {
+    if (catData) setCategories(catData);
+    if (catError) setError(catError);
+  }, [catData, catError]);
+
+  const productsKey = token
+    ? `products?q=${query || ''}&c=${filterCategory || ''}&low=${lowStockOnly ? 1 : 0}`
+    : null;
+  const { data: prodData, error: prodError } = useApi(
+    productsKey,
+    () => api.products(token, {
+      q: query || undefined,
+      categoryId: filterCategory || undefined,
+      lowStock: lowStockOnly || undefined,
+      limit: 200,
+    }),
+    { ttl: 30_000 }
+  );
+  useEffect(() => {
+    if (prodData) setProducts(prodData.items);
+    if (prodError) setError(prodError);
+  }, [prodData, prodError]);
+
   const load = useCallback(async () => {
     if (!token) return;
     setError('');
     try {
+      invalidateApi(productsKey || '');
       const [prodRes, catRes] = await Promise.all([
         api.products(token, {
           q: query || undefined,
@@ -49,7 +80,7 @@ export default function ProdukPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal memuat data');
     }
-  }, [token, query, filterCategory, lowStockOnly]);
+  }, [token, query, filterCategory, lowStockOnly, productsKey]);
 
   useEffect(() => {
     const t = window.localStorage.getItem('token') || '';

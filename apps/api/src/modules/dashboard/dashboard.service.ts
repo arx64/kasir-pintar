@@ -1,4 +1,4 @@
-import { prisma } from '../../lib/prisma.js';
+﻿import { prisma } from '../../lib/prisma.js';
 import { toNumber } from '../../utils/money.js';
 import { endOfThisMonth, endOfToday, startOfThisMonth, startOfToday } from '../../utils/date.js';
 import { getLowStockProducts } from '../product/product.service.js';
@@ -9,7 +9,12 @@ export async function getDashboardSummary() {
   const monthStart = startOfThisMonth();
   const monthEnd = endOfThisMonth();
 
-  const [salesToday, salesMonth, expensesToday, expensesMonth, topProducts, lowStock] =
+  // Rentang 7 hari terakhir (untuk chart) diambil sekali agar tidak ada N+1 query.
+  const chartStart = new Date(todayStart);
+  chartStart.setDate(chartStart.getDate() - 6);
+  chartStart.setHours(0, 0, 0, 0);
+
+  const [salesToday, salesMonth, expensesToday, expensesMonth, topProducts, lowStock, chartSales, chartExpenses] =
     await Promise.all([
       prisma.sale.findMany({
         where: {
@@ -44,6 +49,19 @@ export async function getDashboardSummary() {
         take: 5,
       }),
       getLowStockProducts(),
+      // Satu query untuk semua omzet 7 hari terakhir.
+      prisma.sale.findMany({
+        where: {
+          status: 'COMPLETED',
+          createdAt: { gte: chartStart, lte: todayEnd },
+        },
+        select: { createdAt: true, total: true },
+      }),
+      // Satu query untuk semua pengeluaran 7 hari terakhir.
+      prisma.expense.findMany({
+        where: { date: { gte: chartStart, lte: todayEnd } },
+        select: { date: true, amount: true },
+      }),
     ]);
 
   const omzetToday = salesToday.reduce((s, x) => s + toNumber(x.total), 0);
@@ -63,51 +81,27 @@ export async function getDashboardSummary() {
   const profitToday = pendapatanToday - expenseToday;
   const profitMonth = pendapatanMonth - expenseMonth;
 
-  // last 7 days chart
-  const chart = [] as Array<{ date: string; omzet: number; pengeluaran: number }>;
+  // Susun chart 7 hari dari hasil query tunggal (tanpa loop query).
+  const chart: Array<{ date: string; omzet: number; pengeluaran: number }> = [];
+  const omzetByDay = new Map<string, number>();
+  for (const s of chartSales) {
+    const key = s.createdAt.toISOString().slice(0, 10);
+    omzetByDay.set(key, (omzetByDay.get(key) || 0) + toNumber(s.total));
+  }
+  const expenseByDay = new Map<string, number>();
+  for (const e of chartExpenses) {
+    const key = e.date.toISOString().slice(0, 10);
+    expenseByDay.set(key, (expenseByDay.get(key) || 0) + toNumber(e.amount));
+  }
   for (let i = 6; i >= 0; i--) {
     const d = new Date(todayStart);
     d.setDate(d.getDate() - i);
-    const start = new Date(d);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(d);
-    end.setHours(23, 59, 59, 999);
-    const daySales = salesMonth.filter((s) => s.createdAt >= start && s.createdAt <= end);
-    // for older than month start, query separately if needed
-    const dayOmzet = daySales.reduce((s, x) => s + toNumber(x.total), 0);
+    const key = d.toISOString().slice(0, 10);
     chart.push({
-      date: start.toISOString().slice(0, 10),
-      omzet: dayOmzet,
-      pengeluaran: 0,
+      date: key,
+      omzet: omzetByDay.get(key) || 0,
+      pengeluaran: expenseByDay.get(key) || 0,
     });
-  }
-
-  const expenseLast7 = await prisma.expense.findMany({
-    where: {
-      date: {
-        gte: new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000),
-        lte: todayEnd,
-      },
-    },
-  });
-
-  for (const row of chart) {
-    const dayStart = new Date(row.date + 'T00:00:00');
-    const dayEnd = new Date(row.date + 'T23:59:59.999');
-    row.pengeluaran = expenseLast7
-      .filter((e) => e.date >= dayStart && e.date <= dayEnd)
-      .reduce((s, e) => s + toNumber(e.amount), 0);
-
-    // fill omzet for days outside current salesMonth fetch if empty
-    if (row.omzet === 0) {
-      const daySales = await prisma.sale.findMany({
-        where: {
-          status: 'COMPLETED',
-          createdAt: { gte: dayStart, lte: dayEnd },
-        },
-      });
-      row.omzet = daySales.reduce((s, x) => s + toNumber(x.total), 0);
-    }
   }
 
   return {

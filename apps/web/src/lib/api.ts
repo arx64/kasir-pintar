@@ -1,4 +1,13 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+﻿function resolveApiUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_API_URL;
+  if (configured) return configured.replace(/\/$/, '');
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.hostname}:4000`;
+  }
+  return 'http://localhost:4000';
+}
+
+const API_URL = resolveApiUrl();
 
 export type ApiResponse<T> = {
   success: boolean;
@@ -56,7 +65,6 @@ export const api = {
   dashboard: (token: string) =>
     request<DashboardResponse>('/api/dashboard', { headers: authHeader(token) }),
 
-  // PRODUCTS
   products: (token: string, params?: { q?: string; categoryId?: string; lowStock?: boolean; page?: number; limit?: number }) =>
     request<{ items: Product[]; total: number; page: number; limit: number }>(`/api/products${qs(params || {})}`, {
       headers: authHeader(token),
@@ -87,7 +95,6 @@ export const api = {
       headers: authHeader(token),
     }),
 
-  // CATEGORIES
   categories: (token: string) =>
     request<Category[]>('/api/products/categories', { headers: authHeader(token) }),
   createCategory: (token: string, name: string) =>
@@ -97,7 +104,6 @@ export const api = {
       body: JSON.stringify({ name }),
     }),
 
-  // SALES
   sales: (token: string, params?: { from?: string; to?: string; status?: string }) =>
     request<{ items: Sale[]; total: number; page: number; limit: number }>(`/api/sales${qs(params || {})}`, {
       headers: authHeader(token),
@@ -132,8 +138,9 @@ export const api = {
     request<Sale>(`/api/sales/${id}/cancel`, { method: 'POST', headers: authHeader(token) }),
   refundSale: (token: string, id: string) =>
     request<Sale>(`/api/sales/${id}/refund`, { method: 'POST', headers: authHeader(token) }),
+  deleteSale: (token: string, id: string) =>
+    request<{ id: string }>(`/api/sales/${id}`, { method: 'DELETE', headers: authHeader(token) }),
 
-  // EXPENSES
   expenses: (token: string, params?: { from?: string; to?: string; category?: string }) =>
     request<{ items: Expense[]; total: number; page: number; limit: number; totalAmount: number }>(`/api/expenses${qs(params || {})}`, {
       headers: authHeader(token),
@@ -144,28 +151,84 @@ export const api = {
       headers: authHeader(token),
       body: JSON.stringify(body),
     }),
+  updateExpense: (token: string, id: string, body: Partial<ExpenseInput>) =>
+    request<Expense>(`/api/expenses/${id}`, {
+      method: 'PUT',
+      headers: authHeader(token),
+      body: JSON.stringify(body),
+    }),
   deleteExpense: (token: string, id: string) =>
     request<{ id: string }>(`/api/expenses/${id}`, { method: 'DELETE', headers: authHeader(token) }),
 
-  // REPORTS
   reports: (token: string, from?: string, to?: string) =>
     request<ReportResponse>(`/api/reports${qs({ from, to })}`, { headers: authHeader(token) }),
 
-  // WHATSAPP
   waStatus: (token: string) =>
-    request<{ connected: boolean; qr: string | null; qrDataUrl: string | null; connection: string | null }>('/api/whatsapp/status', {
-      headers: authHeader(token),
-    }),
+    request<WaState>('/api/whatsapp/status', { headers: authHeader(token) }),
   waConnect: (token: string) =>
-    request<{ connected: boolean; qr: string | null; qrDataUrl: string | null; connection: string | null }>('/api/whatsapp/connect', {
-      method: 'POST',
-      headers: authHeader(token),
-    }),
+    request<WaState>('/api/whatsapp/connect', { method: 'POST', headers: authHeader(token) }),
   waTest: (token: string, to: string, message: string) =>
     request<unknown>('/api/whatsapp/test', {
       method: 'POST',
       headers: authHeader(token),
       body: JSON.stringify({ to, message }),
+    }),
+  waLogs: (token: string, limit = 50) =>
+    request<WhatsAppLog[]>(`/api/whatsapp/logs?limit=${limit}`, { headers: authHeader(token) }),
+
+  users: (token: string, params?: { role?: string; isActive?: boolean; q?: string }) =>
+    request<User[]>(`/api/users${qs(params || {})}`, { headers: authHeader(token) }),
+  createUser: (token: string, body: UserInput) =>
+    request<User>('/api/users', {
+      method: 'POST',
+      headers: authHeader(token),
+      body: JSON.stringify(body),
+    }),
+  updateUser: (token: string, id: string, body: Partial<UserInput>) =>
+    request<User>(`/api/users/${id}`, {
+      method: 'PUT',
+      headers: authHeader(token),
+      body: JSON.stringify(body),
+    }),
+  resetUserPassword: (token: string, id: string, password: string) =>
+    request<{ id: string }>(`/api/users/${id}/reset-password`, {
+      method: 'POST',
+      headers: authHeader(token),
+      body: JSON.stringify({ password }),
+    }),
+  toggleUserActive: (token: string, id: string) =>
+    request<User>(`/api/users/${id}/toggle-active`, { method: 'POST', headers: authHeader(token) }),
+
+  stockLogs: (token: string, params?: { productId?: string; type?: string; from?: string; to?: string; page?: number; limit?: number }) =>
+    request<{ items: StockLog[]; total: number; page: number; limit: number }>(`/api/stock${qs(params || {})}`, {
+      headers: authHeader(token),
+    }),
+  stockMovements: (token: string) =>
+    request<StockMovement[]>(`/api/stock/movements`, { headers: authHeader(token) }),
+
+  customerRequests: (token: string, status?: string) =>
+    request<CustomerRequest[]>(`/api/customer-requests${qs({ status })}`, {
+      headers: authHeader(token),
+    }),
+  updateCustomerRequestStatus: (token: string, id: string, status: CustomerRequestStatus) =>
+    request<CustomerRequest>(`/api/customer-requests/${id}/status`, {
+      method: 'PATCH',
+      headers: authHeader(token),
+      body: JSON.stringify({ status }),
+    }),
+  deleteCustomerRequest: (token: string, id: string) =>
+    request<{ id: string }>(`/api/customer-requests/${id}`, {
+      method: 'DELETE',
+      headers: authHeader(token),
+    }),
+
+  getSettings: (token: string) =>
+    request<Record<string, string>>('/api/settings', { headers: authHeader(token) }),
+  updateSettings: (token: string, body: Record<string, string>) =>
+    request<Record<string, string>>('/api/settings', {
+      method: 'PUT',
+      headers: authHeader(token),
+      body: JSON.stringify(body),
     }),
 };
 
@@ -283,4 +346,74 @@ export type ReportResponse = {
   sales: Sale[];
   expenses: Expense[];
   topProducts: Array<{ productId: string; name: string; qty: number; omzet: number }>;
+};
+
+export type WaState = {
+  connected: boolean;
+  qr: string | null;
+  qrDataUrl: string | null;
+  connection: string | null;
+};
+
+export type WhatsAppLog = {
+  id: string;
+  type: string;
+  to: string | null;
+  message: string;
+  status: string;
+  createdAt: string;
+};
+
+export type UserInput = {
+  name: string;
+  email: string;
+  password: string;
+  role: 'OWNER' | 'KASIR';
+  phone?: string | null;
+  isActive?: boolean;
+};
+
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  role: 'OWNER' | 'KASIR';
+  phone?: string | null;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export type StockLog = {
+  id: string;
+  productId: string;
+  type: 'SALE' | 'REFUND' | 'ADJUSTMENT' | 'RESTOCK' | 'CANCEL';
+  quantity: number;
+  before: number;
+  after: number;
+  note?: string | null;
+  refId?: string | null;
+  createdAt: string;
+  product?: { id: string; name: string; barcode?: string | null } | null;
+};
+
+export type StockMovement = {
+  id: string;
+  name: string;
+  barcode?: string | null;
+  stock: number;
+  minStock: number;
+  totalIn: number;
+  totalOut: number;
+};
+
+export type CustomerRequestStatus = 'NEW' | 'IN_PROGRESS' | 'DONE' | 'REJECTED';
+
+export type CustomerRequest = {
+  id: string;
+  name: string;
+  phone: string;
+  message: string;
+  status: CustomerRequestStatus;
+  createdAt: string;
+  updatedAt: string;
 };

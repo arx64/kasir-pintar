@@ -1,15 +1,51 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { logout, useAuth } from '@/hooks/use-auth';
+
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(' ');
+}
+
+type Role = 'OWNER' | 'KASIR';
+type MenuItem = { href: string; label: string };
+
+function buildMenu(role: Role): MenuItem[] {
+  const ownerMenu: MenuItem[] = [
+    { href: '/dashboard', label: 'Dashboard' },
+    { href: '/produk', label: 'Produk' },
+    { href: '/stok', label: 'Stok' },
+    { href: '/penjualan', label: 'Penjualan' },
+    { href: '/pengeluaran', label: 'Pengeluaran' },
+    { href: '/laporan', label: 'Laporan' },
+    { href: '/permintaan', label: 'Permintaan' },
+    { href: '/pengguna', label: 'Pengguna' },
+    { href: '/whatsapp', label: 'WhatsApp' },
+    { href: '/pengaturan', label: 'Pengaturan' },
+  ];
+
+  const kasirMenu: MenuItem[] = [
+    { href: '/kasir', label: 'Kasir' },
+    { href: '/produk', label: 'Stok' },
+    { href: '/penjualan', label: 'Riwayat' },
+    { href: '/pengeluaran', label: 'Pengeluaran' },
+  ];
+
+  if (role === 'OWNER') {
+    return ownerMenu;
+  }
+
+  const hasKasirEntry = kasirMenu.some((item) => item.href === '/kasir');
+  return hasKasirEntry ? kasirMenu : [{ href: '/kasir', label: 'Kasir' }, ...kasirMenu];
+}
 
 export function Shell({
   children,
   allowedRoles,
 }: {
   children: React.ReactNode;
-  allowedRoles?: Array<'OWNER' | 'KASIR'>;
+  allowedRoles?: Role[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -21,25 +57,8 @@ export function Shell({
     );
   }
 
-  const role = user.role;
-
-  const ownerMenu = [
-    { href: '/dashboard', label: 'Dashboard' },
-    { href: '/produk', label: 'Produk' },
-    { href: '/penjualan', label: 'Penjualan' },
-    { href: '/pengeluaran', label: 'Pengeluaran' },
-    { href: '/laporan', label: 'Laporan' },
-    { href: '/whatsapp', label: 'WhatsApp' },
-  ];
-
-  const kasirMenu = [
-    { href: '/kasir', label: 'Kasir' },
-    { href: '/produk', label: 'Stok' },
-    { href: '/penjualan', label: 'Riwayat' },
-    { href: '/pengeluaran', label: 'Pengeluaran' },
-  ];
-
-  const menu = role === 'OWNER' ? ownerMenu : kasirMenu;
+  const role = user.role as Role;
+  const menu = buildMenu(role);
 
   return (
     <div className="min-h-screen flex">
@@ -53,16 +72,19 @@ export function Shell({
             </div>
           </div>
         </div>
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {menu.map((item) => {
             const active = pathname?.startsWith(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href as never}
-                className={`block rounded-xl px-4 py-3 text-sm font-medium transition ${
-                  active ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'
-                }`}
+                className={cn(
+                  'block rounded-xl px-4 py-3 text-sm font-medium transition',
+                  active
+                    ? 'bg-brand-50 text-brand-700'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
+                )}
               >
                 {item.label}
               </Link>
@@ -96,9 +118,12 @@ export function Shell({
             <Link
               key={item.href}
               href={item.href as never}
-              className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm ${
-                pathname?.startsWith(item.href) ? 'bg-brand-100 text-brand-700' : 'bg-slate-100'
-              }`}
+              className={cn(
+                'whitespace-nowrap rounded-lg px-3 py-2 text-sm transition',
+                pathname?.startsWith(item.href)
+                  ? 'bg-brand-600 text-white'
+                  : 'bg-slate-100 text-slate-700',
+              )}
             >
               {item.label}
             </Link>
@@ -125,10 +150,11 @@ export function StatCard({
     red: 'text-red-600',
     blue: 'text-blue-600',
   };
+
   return (
     <div className="card p-5">
       <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={`mt-2 text-2xl font-bold ${tones[tone]}`}>{value}</p>
+      <p className={cn('mt-2 text-2xl font-bold', tones[tone])}>{value}</p>
     </div>
   );
 }

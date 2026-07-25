@@ -22,6 +22,12 @@ export async function listCustomerRequests(status?: string) {
   });
 }
 
+export async function getCustomerRequest(id: string) {
+  const req = await prisma.customerRequest.findUnique({ where: { id } });
+  if (!req) throw new ApiError(404, 'Permintaan tidak ditemukan');
+  return req;
+}
+
 export async function updateStatus(id: string, status: string) {
   const req = await prisma.customerRequest.findUnique({ where: { id } });
   if (!req) throw new ApiError(404, 'Permintaan tidak ditemukan');
@@ -29,4 +35,10 @@ export async function updateStatus(id: string, status: string) {
     where: { id },
     data: { status: status as never },
   });
+}
+
+export async function deleteCustomerRequest(id: string) {
+  await getCustomerRequest(id);
+  await prisma.customerRequest.delete({ where: { id } });
+  return { id };
 }
